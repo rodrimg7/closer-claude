@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asistente de Ventas en Tiempo Real</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f0efe9; color: #1a1a1a; min-height: 100vh; padding: 1.5rem;
+  font-size: 14px; line-height: 1.5;
+}
+h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+.subtitle { font-size: 13px; color: #888; margin-bottom: 1.25rem; }
+
+.status-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; background: #fff;
+  border: 0.5px solid rgba(0,0,0,0.1); border-radius: 12px; margin-bottom: 1rem;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #e24b4a; flex-shrink: 0; }
+.dot.on { background: #639922; animation: blink 1.5s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+.status-label { font-size: 13px; color: #666; flex: 1; }
+.status-label b { color: #1a1a1a; }
+.btn { padding: 7px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; border: none; }
+.btn-dark { background: #1a1a1a; color: #fff; }
+.btn-dark:hover { opacity: 0.82; }
+.btn-dark:disabled { opacity: 0.45; cursor: default; }
+.btn-outline { background: transparent; color: #1a1a1a; border: 0.5px solid rgba(0,0,0,0.22); }
+.btn-outline:hover { background: #eee; }
+
+.sources { display: flex; gap: 8px; margin-bottom: 1rem; }
+.pill { display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; font-size: 12px; border: 0.5px solid rgba(0,0,0,0.12); background: #fff; color: #bbb; }
+.pill .pd { width: 7px; height: 7px; border-radius: 50%; background: #ddd; flex-shrink: 0; }
+.pill.on { color: #3b6d11; border-color: rgba(99,153,34,0.45); }
+.pill.on .pd { background: #639922; animation: blink 1.5s infinite; }
+.pill.warn { color: #854f0b; border-color: rgba(239,159,39,0.45); }
+.pill.warn .pd { background: #ef9f27; }
+
+.g3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 1rem; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.card { background: #fff; border: 0.5px solid rgba(0,0,0,0.09); border-radius: 12px; padding: 1rem 1.25rem; }
+.mlabel { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.mval { font-size: 22px; font-weight: 600; color: #1a1a1a; }
+.msub { font-size: 12px; color: #999; margin-top: 2px; }
+.pbar { height: 4px; background: #eee; border-radius: 2px; margin-top: 7px; overflow: hidden; }
+.pfill { height: 100%; background: #639922; border-radius: 2px; width: 0; transition: width 1s ease; }
+
+.slabel { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 7px; }
+.tbox { background: #fff; border: 0.5px solid rgba(0,0,0,0.09); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 12px; min-height: 140px; max-height: 170px; overflow-y: auto; }
+.tline { font-size: 13px; line-height: 1.6; margin-bottom: 4px; color: #777; }
+.tline.fresh { color: #1a1a1a; }
+.tline .who { font-size: 11px; font-weight: 600; margin-right: 5px; }
+.mic-color { color: #185fa5; }
+.sys-color { color: #854f0b; }
+
+.tipbox { background: #fff; border: 0.5px solid rgba(0,0,0,0.09); border-radius: 12px; padding: 1rem 1.25rem; min-height: 80px; margin-bottom: 12px; }
+.tiprow { display: flex; gap: 8px; align-items: flex-start; padding: 7px 0; border-bottom: 0.5px solid rgba(0,0,0,0.06); font-size: 13px; line-height: 1.5; }
+.tiprow:last-child { border-bottom: none; padding-bottom: 0; }
+.badge { font-size: 11px; font-weight: 500; padding: 2px 9px; border-radius: 5px; white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
+.b-opp { background: #e6f1fb; color: #185fa5; }
+.b-warn { background: #faeeda; color: #854f0b; }
+.b-close { background: #eaf3de; color: #3b6d11; }
+
+.crmcard { background: #fff; border: 0.5px solid rgba(0,0,0,0.09); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 10px; }
+.cg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fl { font-size: 11px; color: #aaa; margin-bottom: 2px; }
+.fv { font-size: 13px; font-weight: 500; color: #1a1a1a; }
+.fv.empty { color: #ccc; font-weight: 400; font-style: italic; }
+.tag { display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 5px; margin: 3px 3px 0 0; }
+.tpain { background: #fcebeb; color: #a32d2d; }
+.tnext { background: #e6f1fb; color: #185fa5; }
+.ph { color: #ccc; font-size: 13px; font-style: italic; }
+
+@media(max-width:640px){ .g3{grid-template-columns:1fr 1fr} .g2{grid-template-columns:1fr} .cg{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<h1>Asistente de Ventas en Tiempo Real</h1>
+<p class="subtitle">Transcripción en vivo · CRM automático · Consejos con IA</p>
+
+<div class="sources">
+  <div class="pill" id="pillMic"><span class="pd"></span>Tu micrófono</div>
+  <div class="pill" id="pillSys"><span class="pd"></span>Audio del sistema</div>
+</div>
+
+<div class="status-bar">
+  <div class="dot" id="statusDot"></div>
+  <div class="status-label" id="statusLabel"><b>Inactivo</b> — Pulsa "Iniciar sesión" para comenzar</div>
+  <button class="btn btn-outline" id="resetBtn" style="display:none;margin-right:6px" onclick="doReset()">Reiniciar</button>
+  <button class="btn btn-dark" id="mainBtn" onclick="doStart()">Iniciar sesión</button>
+</div>
+
+<div class="g3">
+  <div class="card"><div class="mlabel">Duración</div><div class="mval" id="timer">00:00</div></div>
+  <div class="card">
+    <div class="mlabel">Prob. cierre</div>
+    <div class="mval" id="prob">—</div>
+    <div class="pbar"><div class="pfill" id="pbar"></div></div>
+  </div>
+  <div class="card">
+    <div class="mlabel">Sentimiento</div>
+    <div class="mval" id="sent" style="font-size:17px">—</div>
+    <div class="msub" id="sentSub"></div>
+  </div>
+</div>
+
+<div class="g2">
+  <div>
+    <div class="slabel">Transcripción en vivo</div>
+    <div class="tbox" id="tbox"><span class="ph">La transcripción aparecerá aquí...</span></div>
+    <div class="slabel">Consejos en tiempo real</div>
+    <div class="tipbox" id="tipbox"><span class="ph">Los consejos aparecerán conforme avance la conversación...</span></div>
+  </div>
+  <div>
+    <div class="slabel">CRM extraído automáticamente</div>
+    <div class="crmcard">
+      <div class="cg">
+        <div><div class="fl">Nombre cliente</div><div class="fv empty" id="cNombre">Por detectar...</div></div>
+        <div><div class="fl">Empresa</div><div class="fv empty" id="cEmpresa">Por detectar...</div></div>
+        <div style="margin-top:8px"><div class="fl">Cargo</div><div class="fv empty" id="cCargo">Por detectar...</div></div>
+        <div style="margin-top:8px"><div class="fl">Sector</div><div class="fv empty" id="cSector">Por detectar...</div></div>
+      </div>
+    </div>
+    <div class="crmcard">
+      <div class="fl" style="margin-bottom:6px">Pain points detectados</div>
+      <div id="cPain"><span class="ph">Ninguno aún</span></div>
+    </div>
+    <div class="crmcard">
+      <div class="fl" style="margin-bottom:6px">Próximos pasos</div>
+      <div id="cNext"><span class="ph">Ninguno aún</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "https://api.anthropic.com/v1/messages";
+const SR  = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+let active     = false;
+let recMic     = null;
+let recSys     = null;
+let sysStream  = null;
+let timerInt   = null;
+let analyzeTO  = null;
+let secs       = 0;
+let transcript = "";
+let buffer     = "";
+let crm        = { nombre:"", empresa:"", cargo:"", sector:"", pain:[], next:[] };
+
+const $ = id => document.getElementById(id);
+const esc = t => t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const setStatus = html => { $("statusLabel").innerHTML = html; };
+const setDot    = on   => { $("statusDot").className = "dot" + (on ? " on" : ""); };
+
+// ─── START ────────────────────────────────────────────────────────
+async function doStart() {
+  if (!SR) { setStatus("<b style='color:#e24b4a'>Error</b> — Usa Chrome o Edge"); return; }
+
+  const btn = $("mainBtn");
+  btn.disabled = true;
+  btn.textContent = "Conectando...";
+
+  // ── Step 1: microphone ──────────────────────────────────────────
+  setStatus("<b>Paso 1/2</b> — Concede acceso al micrófono...");
+  let micStream;
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch (e) {
+    setStatus("<b style='color:#e24b4a'>Sin micrófono</b> — Permite el acceso y vuelve a intentarlo");
+    btn.disabled = false;
+    btn.textContent = "Iniciar sesión";
+    return;
+  }
+  $("pillMic").className = "pill on";
+
+  // ── Step 2: system audio via getDisplayMedia ────────────────────
+  setStatus("<b>Paso 2/2</b> — Comparte pantalla con audio del sistema...");
+  try {
+    sysStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { width: 1, height: 1 },
+      audio: true
+    });
+    // drop the video track immediately — we only care about audio
+    sysStream.getVideoTracks().forEach(t => t.stop());
+
+    if (sysStream.getAudioTracks().length > 0) {
+      $("pillSys").className = "pill on";
+      sysStream.getAudioTracks()[0].addEventListener("ended", onSysEnded);
+    } else {
+      $("pillSys").className = "pill warn";
+      addTip("warn", "No se capturó audio del sistema. Marca 'Compartir audio del sistema' en el diálogo.");
+      sysStream = null;
+    }
+  } catch (e) {
+    // user cancelled — continue mic-only
+    sysStream = null;
+    $("pillSys").className = "pill warn";
+    addTip("warn", "Sin audio del sistema. Continuando solo con tu micrófono.");
+  }
+
+  // ── Activate ────────────────────────────────────────────────────
+  active = true;
+  setDot(true);
+  setStatus("<b>En sesión</b> — Escuchando y analizando en tiempo real...");
+  btn.textContent = "Detener sesión";
+  btn.disabled    = false;
+  btn.onclick     = doStop;
+  $("resetBtn").style.display = "";
+  $("tbox").innerHTML   = "";
+  $("tipbox").innerHTML = "";
+  startTimer();
+
+  // ── Recognizers ─────────────────────────────────────────────────
+  // Microphone recognizer — uses the browser default audio input (which IS the mic)
+  recMic = makeRec("Tú", "mic-color", micStream);
+
+  // System-audio recognizer:
+  // Web Speech API in Chrome always uses the OS default microphone internally
+  // and ignores any MediaStream we pass. The only way to redirect it is to
+  // route the sysStream audio into an AudioContext and play it through a
+  // hidden <audio> element so the OS audio engine can pick it up.
+  if (sysStream && sysStream.getAudioTracks().length > 0) {
+    try {
+      const ctx = new AudioContext();
+      const src = ctx.createMediaStreamSource(sysStream);
+      const dst = ctx.createMediaStreamDestination();
+      src.connect(dst);
+      // Play system audio at very low volume — we just need the browser to process it
+      const audioEl = new Audio();
+      audioEl.srcObject = dst.stream;
+      audioEl.volume    = 0.05;
+      audioEl.play().catch(() => {});
+      document.body.appendChild(audioEl);
+      recSys = makeRec("Cliente", "sys-color", dst.stream, audioEl);
+    } catch (e) {
+      console.warn("System audio routing failed", e);
+      recSys = null;
+    }
+  }
+}
+
+function onSysEnded() {
+  $("pillSys").className = "pill warn";
+  if (recSys) { try { recSys.stop(); } catch (_) {} recSys = null; }
+  addTip("warn", "El audio del sistema se desconectó. Solo se transcribe tu micrófono.");
+}
+
+// ─── BUILD RECOGNIZER ─────────────────────────────────────────────
+function makeRec(label, cls, stream, audioEl) {
+  const rec = new SR();
+  rec.lang            = "es-ES";
+  rec.continuous      = true;
+  rec.interimResults  = true;
+  rec._audioEl        = audioEl || null;  // keep reference for cleanup
+
+  let lastFinal = "";
+  rec.onresult = ev => {
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const t = ev.results[i][0].transcript.trim();
+      if (ev.results[i].isFinal && t && t !== lastFinal) {
+        lastFinal = t;
+        addLine(label, cls, t);
+        transcript += `\n[${label}]: ${t}`;
+        buffer     += " " + t;
+        scheduleAnalysis();
+      }
+    }
+  };
+  rec.onerror = ev => { if (ev.error !== "no-speech") console.warn(label, ev.error); };
+  // Only restart on end if still active — prevents the infinite-loop bug
+  rec.onend = () => { if (active) { try { rec.start(); } catch (_) {} } };
+  rec.start();
+  return rec;
+}
+
+// ─── STOP ─────────────────────────────────────────────────────────
+function doStop() {
+  active = false;  // must set BEFORE stopping recognizers (prevents onend restart)
+  [recMic, recSys].forEach(r => {
+    if (!r) return;
+    try { r.stop(); } catch (_) {}
+    if (r._audioEl) { r._audioEl.pause(); r._audioEl.remove(); }
+  });
+  recMic = null; recSys = null;
+  if (sysStream) { sysStream.getTracks().forEach(t => t.stop()); sysStream = null; }
+  clearInterval(timerInt); timerInt = null;
+  clearTimeout(analyzeTO);  analyzeTO = null;
+  setDot(false);
+  $("mainBtn").textContent = "Nueva sesión";
+  $("mainBtn").onclick     = doReset;
+  setStatus("<b>Sesión finalizada</b> — Generando análisis final...");
+  if (transcript.trim().length > 30) runFinal();
+  else setStatus("<b>Sesión finalizada</b>");
+}
+
+// ─── RESET ────────────────────────────────────────────────────────
+function doReset() {
+  active = false;
+  [recMic, recSys].forEach(r => { if (r) { try { r.stop(); } catch (_) {} if (r._audioEl) { r._audioEl.pause(); r._audioEl.remove(); } } });
+  recMic = null; recSys = null;
+  if (sysStream) { sysStream.getTracks().forEach(t => t.stop()); sysStream = null; }
+  clearInterval(timerInt); timerInt = null;
+  clearTimeout(analyzeTO);  analyzeTO = null;
+
+  secs = 0; transcript = ""; buffer = "";
+  crm  = { nombre:"", empresa:"", cargo:"", sector:"", pain:[], next:[] };
+  $("timer").textContent    = "00:00";
+  $("prob").textContent     = "—";
+  $("pbar").style.width     = "0";
+  $("sent").textContent     = "—";
+  $("sentSub").textContent  = "";
+  $("tbox").innerHTML       = '<span class="ph">La transcripción aparecerá aquí...</span>';
+  $("tipbox").innerHTML     = '<span class="ph">Los consejos aparecerán conforme avance la conversación...</span>';
+  ["cNombre","cEmpresa","cCargo","cSector"].forEach(id => {
+    $(id).textContent = "Por detectar..."; $(id).className = "fv empty";
+  });
+  $("cPain").innerHTML      = '<span class="ph">Ninguno aún</span>';
+  $("cNext").innerHTML      = '<span class="ph">Ninguno aún</span>';
+  $("pillMic").className    = "pill";
+  $("pillSys").className    = "pill";
+  $("resetBtn").style.display = "none";
+  $("mainBtn").textContent  = "Iniciar sesión";
+  $("mainBtn").onclick      = doStart;
+  $("mainBtn").disabled     = false;
+  setDot(false);
+  setStatus("<b>Inactivo</b> — Pulsa 'Iniciar sesión' para comenzar");
+}
+
+// ─── TIMER ────────────────────────────────────────────────────────
+function startTimer() {
+  timerInt = setInterval(() => {
+    secs++;
+    const m = String(Math.floor(secs / 60)).padStart(2,"0");
+    const s = String(secs % 60).padStart(2,"0");
+    $("timer").textContent = m + ":" + s;
+  }, 1000);
+}
+
+// ─── TRANSCRIPT ───────────────────────────────────────────────────
+function addLine(label, cls, text) {
+  const box = $("tbox");
+  const ph  = box.querySelector(".ph");
+  if (ph) ph.remove();
+  const d = document.createElement("div");
+  d.className = "tline fresh";
+  d.innerHTML = `<span class="who ${cls}">${esc(label)}:</span>${esc(text)}`;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+  setTimeout(() => d.classList.remove("fresh"), 3000);
+}
+
+// ─── ANALYSIS ─────────────────────────────────────────────────────
+function scheduleAnalysis() {
+  clearTimeout(analyzeTO);
+  const words = buffer.trim().split(/\s+/).length;
+  analyzeTO = setTimeout(runIncremental, words < 18 ? 7000 : 4500);
+}
+
+async function runIncremental() {
+  const buf = buffer.trim();
+  if (!buf || buf.split(/\s+/).length < 6) return;
+  buffer = "";
+  await callAI(buf, false);
+}
+
+async function runFinal() {
+  await callAI("", true);
+}
+
+async function callAI(fragment, isFinal) {
+  const sys = `Eres un experto en ventas B2B. Analiza transcripciones de reuniones de ventas en español.
+[Tú] es el vendedor. [Cliente] es el prospecto.
+Responde ÚNICAMENTE con JSON válido. Sin backticks, sin texto adicional.
+{
+  "nombre": "",
+  "empresa": "",
+  "cargo": "",
+  "sector": "",
+  "painPoints": [],
+  "nextSteps": [],
+  "probabilidad": 0,
+  "sentimiento": "positivo|neutral|negativo",
+  "sentimientoDetalle": "",
+  "consejo": "",
+  "tipoBadge": "opp|warn|close"
+}
+probabilidad: 0-100 según interés del cliente.
+consejo: consejo concreto y accionable para el vendedor en este momento. Vacío si no hay contexto suficiente.
+tipoBadge: opp=oportunidad, warn=alerta, close=señal de cierre.`;
+
+  const msg = isFinal
+    ? `Análisis FINAL de la reunión completa:\n${transcript}`
+    : `Transcripción acumulada:\n${transcript}\n\nNuevo fragmento:\n${fragment}`;
+
+  try {
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 900,
+        system: sys,
+        messages: [{ role: "user", content: msg }]
+      })
+    });
+    const data = await r.json();
+    const raw  = (data.content || []).map(b => b.text || "").join("")
+                   .replace(/```json|```/g, "").trim();
+    applyAI(JSON.parse(raw), isFinal);
+  } catch (e) { console.warn("AI error", e); }
+}
+
+// ─── APPLY RESPONSE ───────────────────────────────────────────────
+function applyAI(d, isFinal) {
+  const setF = (id, val) => { if (val?.trim()) { $(id).textContent = val; $(id).className = "fv"; } };
+  setF("cNombre", d.nombre);
+  setF("cEmpresa", d.empresa);
+  setF("cCargo",   d.cargo);
+  setF("cSector",  d.sector);
+
+  if (d.painPoints?.length) {
+    d.painPoints.forEach(p => { if (!crm.pain.includes(p)) crm.pain.push(p); });
+    $("cPain").innerHTML = crm.pain.map(p => `<span class="tag tpain">${esc(p)}</span>`).join("");
+  }
+  if (d.nextSteps?.length) {
+    d.nextSteps.forEach(n => { if (!crm.next.includes(n)) crm.next.push(n); });
+    $("cNext").innerHTML = crm.next.map(n => `<span class="tag tnext">${esc(n)}</span>`).join("");
+  }
+  if (d.probabilidad > 0) {
+    $("prob").textContent     = d.probabilidad + "%";
+    $("pbar").style.width     = d.probabilidad + "%";
+  }
+  if (d.sentimiento) {
+    $("sent").textContent    = { positivo:"Positivo", neutral:"Neutral", negativo:"Negativo" }[d.sentimiento] || d.sentimiento;
+    $("sentSub").textContent = d.sentimientoDetalle || "";
+  }
+  if (d.consejo?.trim().length > 5) addTip(d.tipoBadge || "opp", d.consejo);
+  if (isFinal) {
+    setStatus("<b>Análisis completo</b> — CRM actualizado con todos los datos");
+    addTip("close", "Sesión finalizada. Todos los datos del CRM han sido actualizados.");
+  }
+}
+
+// ─── ADD TIP ──────────────────────────────────────────────────────
+function addTip(badge, text) {
+  const box    = $("tipbox");
+  const ph     = box.querySelector(".ph");
+  if (ph) ph.remove();
+  const labels = { opp:"Oportunidad", warn:"Atención", close:"Cierre" };
+  const d      = document.createElement("div");
+  d.className  = "tiprow";
+  d.innerHTML  = `<span class="badge b-${badge}">${labels[badge] || "Tip"}</span><span>${esc(text)}</span>`;
+  box.insertBefore(d, box.firstChild);
+  while (box.children.length > 6) box.removeChild(box.lastChild);
+}
+</script>
+</body>
+</html>
